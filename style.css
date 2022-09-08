@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Milonga&display=swap');
+
+html {
+	height: 100%;
+}
+
+body {
+	max-width: 1080px;
+	margin: 0px auto;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	background-color: #222;
+	color: #f5f5f5;
+}
+
+header {
+	text-align: center;
+}
+
+main {
+	flex: 1 0 auto;
+	padding: 1em;
+}
+
+footer {
+	flex-shrink: 0;
+}
+
+h1 {
+	font-family: Milonga, cursive;
+	font-size: 4em;
+	color: #00FAA3;
+}
+
+.raw {
+	background-color: #900000;
+}
+.undercooked {
+	background-color: #905000;
+}
+.cooked {
+	background-color: #009000;
+}
+.burnt {
+	background-color: #000000;
+}

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Sea of Plenty</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" href="style.css">
+		<script type="module">
+			import {createApp} from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+			createApp({
+				data() {
+					return {
+						hour: {
+							end: 0,
+							remaining: 0,
+							colour: '#333333',
+						},
+						fish: {
+							start: 0,
+							elapsed: 0,
+							remaining: 0,
+							type: 'normal',
+							status: '',
+							timing: {
+								normal: {
+									raw: 30 * 1000,
+									undercooked: 40 * 1000,
+									cooked: 80 * 1000,
+									burnt: 60 * 60 * 1000,
+								},
+								trophy: {
+									raw: 80 * 1000,
+									undercooked: 90 * 1000,
+									cooked: 180 * 1000,
+									burnt: 60 * 60 * 1000,
+								},
+							},
+						},
+						timer: null,
+					};
+				},
+				methods: {
+					startHour() {
+						this.hour.end = Date.now() + (60 * 60 * 1000);
+						this.hour.remaining = 60 * 60 * 1000;
+					},
+					startFish(trophy) {
+						this.fish.type = trophy ? 'trophy' : 'normal';
+						this.fish.elapsed = 0;
+						this.fish.start = Date.now();
+					},
+					stopFish() {
+						this.fish.start = 0;
+					},
+				},
+				mounted() {
+					this.timer = setInterval(() => {
+						if (this.hour.end) {
+							this.hour.remaining = this.hour.end - Date.now();
+							// this.colour = `#${Math.floor(78 - (this.hour.remaining / 1000 / 30)).toString(16)}${Math.floor(this.hour.remaining / 1000 / 30).toString(16)}00`;
+							this.hour.colour = `rgb(${Math.floor(78 - (this.hour.remaining / 1000 / 30))}, ${Math.floor(this.hour.remaining / 1000 / 30)}, 0`;
+						}
+						if (this.fish.start) {
+							this.fish.elapsed = Date.now() - this.fish.start;
+							this.fish.status = Object.keys(this.fish.timing[this.fish.type]).find((status) => this.fish.elapsed < this.fish.timing[this.fish.type][status]);
+							this.fish.remaining = this.fish.status === 'raw' || this.fish.status === 'undercooked' ? this.fish.timing[this.fish.type]['undercooked'] - this.fish.elapsed : this.fish.timing[this.fish.type]['cooked'] - this.fish.elapsed;
+						} else {
+							this.fish.elapsed = 0;
+							this.fish.remaining = 0;
+							this.fish.status = '';
+						}
+					}, 100);
+				},
+			}).mount('main');
+		</script>
+	</head>
+	<body>
+		<header>
+			<h1>Sea of Plenty (of fishes)</h1>
+		</header>
+		<main>
+			<div :style="{backgroundColor: hour.colour}" style="padding: 1em; text-align: center; font-size: 5em;">{{new Date(hour.remaining).toISOString().slice(11,19)}}</div>
+			<button v-if="!hour.end" @click="startHour" style="padding: 1em; text-align: center; font-size: 2em;">Start Countdown</button>
+			<div :class="fish.status" style="padding: 2em; text-align: center; font-size: 3em;">
+				<template v-if="fish.start">
+					{{fish.status.toUpperCase()}} {{Math.ceil(fish.remaining / 1000)}}{{fish.status === 'raw' || fish.status === 'undercooked' ? 's until ready' : 's until burned'}}
+				</template>
+				<template v-else>Nothing Cooking</template>
+			</div>
+			<button @click="startFish(false)" style="padding: 1em; text-align: center; font-size: 2em;">Cook Fish</button>
+			<button @click="startFish(true)" style="padding: 1em; text-align: center; font-size: 2em;">Cook Trophy Fish</button>
+			<button @click="stopFish" style="padding: 1em; text-align: center; font-size: 2em;">Stop Cooking</button>
+		</main>
+		<footer>
+			<p>Created by <a href="https://mark.honeychurch.org/">Mark Honeychurch</a></p>
+		</footer>
+	</body>
+</html>
