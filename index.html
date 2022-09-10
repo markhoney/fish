@@ -37,6 +37,7 @@
 							},
 						},
 						timer: null,
+						socket: null,
 					};
 				},
 				methods: {
@@ -51,6 +52,19 @@
 					},
 					stopFish() {
 						this.fish.start = 0;
+					},
+					event(message) {
+						if (this.socket) {
+							if (message === 'hour') this.socket.send(JSON.stringify({type: 'hour'}));
+							else if (message === 'fish') this.socket.send(JSON.stringify({type: 'fish', event: 'start'}));
+							else if (message === 'trophy') this.socket.send(JSON.stringify({type: 'fish', event: 'start', trophy: true}));
+							else if (message === 'stop') this.socket.send(JSON.stringify({type: 'fish', event: 'stop'}));
+						} else {
+							if (message === 'hour') this.startHour();
+							else if (message === 'fish') this.startFish(false);
+							else if (message === 'trophy') this.startFish(true);
+							else if (message === 'stop') this.stopFish();
+						}
 					},
 				},
 				mounted() {
@@ -70,26 +84,53 @@
 							this.fish.status = '';
 						}
 					}, 100);
+					try {
+						this.socket = new WebSocket("wss://demo.piesocket.com/v3/seaofplenty?api_key=VCXCEuvhGcBDP7XhiJJUDvR1e1D3eiVjgZ9VRiaV&notify_self");
+					} catch (e) {
+						return;
+					}
+					if (!this.socket) return;
+					this.socket.onmessage = (event) => {
+						const message = JSON.parse(event.data);
+						if (message.type === 'hour') {
+							this.startHour();
+						} else if (message.type === 'fish') {
+							if (message.event === 'start') {
+								if (message.trophy) this.startFish(true);
+								else this.startFish(false);
+							} else if (message.event === 'stop') {
+								this.stopFish();
+							}
+						}
+					}
 				},
 			}).mount('main');
 		</script>
 	</head>
 	<body>
 		<header>
-			<h1>Sea of Plenty (of fishes)</h1>
+			<h1>Sea of Plenty</h1>
 		</header>
 		<main>
-			<div :style="{backgroundColor: hour.colour}" style="padding: 1em; text-align: center; font-size: 5em;">{{new Date(hour.remaining).toISOString().slice(11,19)}}</div>
-			<button v-if="!hour.end" @click="startHour" style="padding: 1em; text-align: center; font-size: 2em;">Start Countdown</button>
-			<div :class="fish.status" style="padding: 2em; text-align: center; font-size: 3em;">
-				<template v-if="fish.start">
-					{{fish.status.toUpperCase()}} {{Math.ceil(fish.remaining / 1000)}}{{fish.status === 'raw' || fish.status === 'undercooked' ? 's until ready' : 's until burned'}}
-				</template>
-				<template v-else>Nothing Cooking</template>
+			<div id="hour">
+				<div :style="{backgroundColor: hour.colour}">{{new Date(hour.remaining).toISOString().slice(11,19)}}</div>
+				<button v-if="!hour.end" @click="event('hour')">Start Countdown</button>
 			</div>
-			<button @click="startFish(false)" style="padding: 1em; text-align: center; font-size: 2em;">Cook Fish</button>
-			<button @click="startFish(true)" style="padding: 1em; text-align: center; font-size: 2em;">Cook Trophy Fish</button>
-			<button @click="stopFish" style="padding: 1em; text-align: center; font-size: 2em;">Stop Cooking</button>
+			<div id="fish" :class="fish.status">
+				<template v-if="fish.start">
+					<h3>{{fish.status.toUpperCase()}}</h3>
+					<p>{{Math.ceil(fish.remaining / 1000)}}{{fish.status === 'raw' || fish.status === 'undercooked' ? 's until ready' : 's until burned'}}</p>
+				</template>
+				<template v-else>
+					<h3>Nothing Cooking</h3>
+					<p>&nbsp;</p>
+					</template>
+			</div>
+			<div id="buttons">
+				<button @click="event('fish')">Cook Fish</button>
+				<button @click="event('trophy')">Cook Trophy Fish</button>
+				<button @click="event('stop')">Stop Cooking</button>
+			</div>
 		</main>
 		<footer>
 			<p>Created by <a href="https://mark.honeychurch.org/">Mark Honeychurch</a></p>
