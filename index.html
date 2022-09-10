@@ -66,6 +66,27 @@
 							else if (message === 'stop') this.stopFish();
 						}
 					},
+					goLive() {
+						try {
+							this.socket = new WebSocket("wss://demo.piesocket.com/v3/seaofplenty?api_key=VCXCEuvhGcBDP7XhiJJUDvR1e1D3eiVjgZ9VRiaV&notify_self");
+						} catch (e) {
+							return;
+						}
+						if (!this.socket) return;
+						this.socket.onmessage = (event) => {
+							const message = JSON.parse(event.data);
+							if (message.type === 'hour') {
+								this.startHour();
+							} else if (message.type === 'fish') {
+								if (message.event === 'start') {
+									if (message.trophy) this.startFish(true);
+									else this.startFish(false);
+								} else if (message.event === 'stop') {
+									this.stopFish();
+								}
+							}
+						}
+					},
 				},
 				mounted() {
 					this.timer = setInterval(() => {
@@ -84,25 +105,6 @@
 							this.fish.status = '';
 						}
 					}, 100);
-					try {
-						this.socket = new WebSocket("wss://demo.piesocket.com/v3/seaofplenty?api_key=VCXCEuvhGcBDP7XhiJJUDvR1e1D3eiVjgZ9VRiaV&notify_self");
-					} catch (e) {
-						return;
-					}
-					if (!this.socket) return;
-					this.socket.onmessage = (event) => {
-						const message = JSON.parse(event.data);
-						if (message.type === 'hour') {
-							this.startHour();
-						} else if (message.type === 'fish') {
-							if (message.event === 'start') {
-								if (message.trophy) this.startFish(true);
-								else this.startFish(false);
-							} else if (message.event === 'stop') {
-								this.stopFish();
-							}
-						}
-					}
 				},
 			}).mount('main');
 		</script>
@@ -113,6 +115,7 @@
 		</header>
 		<main>
 			<div id="hour">
+				<button v-if="!socket" @click="goLive">Go Live</button>
 				<div :style="{backgroundColor: hour.colour}">{{new Date(hour.remaining).toISOString().slice(11,19)}}</div>
 				<button v-if="!hour.end" @click="event('hour')">Start Countdown</button>
 			</div>
