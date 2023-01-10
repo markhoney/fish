@@ -70,9 +70,13 @@
 						try {
 							this.socket = new WebSocket("wss://demo.piesocket.com/v3/seaofplenty?api_key=VCXCEuvhGcBDP7XhiJJUDvR1e1D3eiVjgZ9VRiaV&notify_self");
 						} catch (e) {
+							console.error('Failed to connect to WebSocket server.');
 							return;
 						}
-						if (!this.socket) return;
+						if (!this.socket) {
+							console.error('Failed to connect to WebSocket server.');
+							return;
+						}
 						this.socket.onmessage = (event) => {
 							const message = JSON.parse(event.data);
 							if (message.type === 'hour') {
