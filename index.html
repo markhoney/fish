@@ -18,7 +18,8 @@
 						fish: {
 							start: 0,
 							elapsed: 0,
-							remaining: 0,
+							percent: 0,
+							done: 0,
 							type: 'normal',
 							status: '',
 							colour: '#333333',
@@ -85,7 +86,6 @@
 							console.error('Failed to connect to WebSocket server.');
 							return;
 						}
-						if (!this.socket) return;
 						this.socket.onopen = () => {
 							console.log('Connected to WebSocket');
 							this.socket.send(JSON.stringify({type: 'status'}));
@@ -132,16 +132,18 @@
 						if (this.hour.end) {
 							this.hour.remaining = this.hour.end - Date.now();
 							// this.colour = `#${Math.floor(78 - (this.hour.remaining / 1000 / 30)).toString(16)}${Math.floor(this.hour.remaining / 1000 / 30).toString(16)}00`;
-							this.hour.colour = `rgb(${Math.floor(78 - (this.hour.remaining / 1000 / 30))}, ${Math.floor(this.hour.remaining / 1000 / 30)}, 0`;
+							this.hour.colour = `rgb(${Math.floor(78 - (this.hour.remaining / 1000 / 30))}, ${Math.floor(this.hour.remaining / 1000 / 30)}, 0)`;
 						}
 						if (this.fish.start) {
 							this.fish.elapsed = Date.now() - this.fish.start;
 							this.fish.status = Object.keys(this.fish.timing[this.fish.type]).find((status) => this.fish.elapsed < this.fish.timing[this.fish.type][status]);
 							this.fish.remaining = this.fish.status === 'raw' || this.fish.status === 'undercooked' ? this.fish.timing[this.fish.type]['undercooked'] - this.fish.elapsed : this.fish.timing[this.fish.type]['cooked'] - this.fish.elapsed;
+							this.fish.percent = this.fish.elapsed < this.fish.timing[this.fish.type]['undercooked'] ?
+								Math.floor((this.fish.elapsed / this.fish.timing[this.fish.type]['undercooked']) * 100) :
+								Math.floor(((this.fish.elapsed - this.fish.timing[this.fish.type]['undercooked']) / (this.fish.timing[this.fish.type]['cooked'] - this.fish.timing[this.fish.type]['undercooked'])) * 100);
 							if (this.fish.status === 'burnt') this.fish.colour = 'black';
-							else if	(this.fish.status === 'raw') this.fish.colour = `rgb(${Math.floor(100 - (this.fish.remaining / 1000))}, ${Math.floor(this.fish.remaining / 1000)}, 0`;
-							else if	(this.fish.status === 'undercooked') this.fish.colour = `rgb(${Math.floor(78 - (this.fish.remaining / 1000))}, ${Math.floor(this.fish.remaining / 1000)}, 0`;
-							else if (this.fish.status === 'cooked') this.fish.colour = `rgb(${Math.floor(78 - (this.fish.remaining / 1000))}, ${Math.floor(this.fish.remaining / 1000)}, 0`;
+							else if (this.fish.status === 'raw' || this.fish.status === 'undercooked') this.fish.colour = `rgb(${Math.floor(100 - (this.fish.percent * 0.5))}, ${Math.floor(this.fish.percent * 0.5)}, 0)`;
+							else if (this.fish.status === 'cooked') this.fish.colour = `rgb(0, ${Math.floor(150 - (this.fish.percent))}, 0)`;
 							else this.fish.colour = '#333333';
 						} else {
 							this.fish.elapsed = 0;
@@ -164,7 +166,7 @@
 				<button v-if="!socket" @click="goLive">Go Live</button>
 				<button v-if="!hour.end" @click="event('hour')">Start Countdown</button>
 			</div>
-			<div id="fish" :class="fish.status">
+			<div id="fish" :class="fish.status" :style="{backgroundColor: fish.colour}">
 				<template v-if="fish.start">
 					<h3>{{fish.status.toUpperCase()}}</h3>
 					<p>{{Math.abs(Math.ceil(fish.remaining / 1000))}}{{fish.status === 'raw' || fish.status === 'undercooked' ? 's until ready' : fish.status === 'cooked' ? 's until burned' : 's since burnt'}}</p>
