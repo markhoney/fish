@@ -21,6 +21,7 @@
 							remaining: 0,
 							type: 'normal',
 							status: '',
+							colour: '#333333',
 							timing: {
 								normal: {
 									raw: 30 * 1000,
@@ -35,9 +36,16 @@
 									burnt: 60 * 60 * 1000,
 								},
 							},
+							colours: {
+								raw: '#900000',
+								undercooked: '#905000',
+								cooked: '#009000',
+								burnt: '#000000',
+							},
 						},
 						timer: null,
 						socket: null,
+						syncing: true,
 					};
 				},
 				methods: {
@@ -73,19 +81,45 @@
 							return;
 						}
 						if (!this.socket) return;
+						this.socket.onopen = () => {
+							console.log('Connected to WebSocket');
+							this.socket.send(JSON.stringify({type: 'status'}));
+							setTimeout(() => this.syncing = false, 1000); // If we don't get a response in 5 seconds, assume we're the only instance
+						}
 						this.socket.onmessage = (event) => {
+							// console.log('Received message from WebSocket');
 							const message = JSON.parse(event.data);
-							if (message.type === 'hour') {
-								this.startHour();
-							} else if (message.type === 'fish') {
-								if (message.event === 'start') {
-									if (message.trophy) this.startFish(true);
+							// console.log(message);
+							if (!message || !message.type) return; // Ignore invalid messages
+							if (message.type === 'hour') { // If we receive a message to start the hour countdown
+								this.startHour(); // Start the hour countdown
+							} else if (message.type === 'fish') { // If we receive a message to start or stop the fish cooking countdown
+								if (message.event === 'start') { // If the event is to start the fish cooking countdown
+									if (message.trophy) this.startFish(true); //
 									else this.startFish(false);
 								} else if (message.event === 'stop') {
 									this.stopFish();
 								}
+							} else if (this.syncing && message.type === 'sync') {
+								// console.log('Received Sync Data from WebSocket');
+								this.syncing = false;
+								if (message.hour) {
+									this.hour.end = message.hour.end;
+								}
+								if (message.fish) {
+									this.fish.start = message.fish.start;
+									this.fish.type = message.fish.type;
+								}
+							} else if (!this.syncing && message.type === 'status') {
+								// console.log('Received Sync Request from WebSocket');
+								this.socket.send(JSON.stringify({type: 'sync', hour: {end: this.hour.end}, fish: {start: this.fish.start, type: this.fish.type}}));
 							}
 						}
+						this.socket.onclose = () => {
+							console.log('Disconnected from WebSocket');
+							this.syncing = true; // If we've disconnected, make sure we ask for sync data when we reconnect
+							setTimeout(this.goLive, 1000); // After 1 second, try to reconnect
+						};
 					},
 				},
 				mounted() {
@@ -99,6 +133,11 @@
 							this.fish.elapsed = Date.now() - this.fish.start;
 							this.fish.status = Object.keys(this.fish.timing[this.fish.type]).find((status) => this.fish.elapsed < this.fish.timing[this.fish.type][status]);
 							this.fish.remaining = this.fish.status === 'raw' || this.fish.status === 'undercooked' ? this.fish.timing[this.fish.type]['undercooked'] - this.fish.elapsed : this.fish.timing[this.fish.type]['cooked'] - this.fish.elapsed;
+							if (this.fish.status === 'burnt') this.fish.colour = 'black';
+							else if	(this.fish.status === 'raw') this.fish.colour = `rgb(${Math.floor(100 - (this.fish.remaining / 1000))}, ${Math.floor(this.fish.remaining / 1000)}, 0`;
+							else if	(this.fish.status === 'undercooked') this.fish.colour = `rgb(${Math.floor(78 - (this.fish.remaining / 1000))}, ${Math.floor(this.fish.remaining / 1000)}, 0`;
+							else if (this.fish.status === 'cooked') this.fish.colour = `rgb(${Math.floor(78 - (this.fish.remaining / 1000))}, ${Math.floor(this.fish.remaining / 1000)}, 0`;
+							else this.fish.colour = '#333333';
 						} else {
 							this.fish.elapsed = 0;
 							this.fish.remaining = 0;
@@ -106,23 +145,24 @@
 						}
 					}, 100);
 				},
-			}).mount('main');
+			}).mount('body');
 		</script>
 	</head>
 	<body>
-		<header>
+		<header v-show="!socket && !hour.end">
+			<img src="/favicon.svg">
 			<h1>Sea of Plenty</h1>
 		</header>
 		<main>
 			<div id="hour">
+				<div :style="{color: hour.colour}">{{new Date(hour.remaining).toISOString().slice(11,19)}}</div>
 				<button v-if="!socket" @click="goLive">Go Live</button>
-				<div :style="{backgroundColor: hour.colour}">{{new Date(hour.remaining).toISOString().slice(11,19)}}</div>
 				<button v-if="!hour.end" @click="event('hour')">Start Countdown</button>
 			</div>
 			<div id="fish" :class="fish.status">
 				<template v-if="fish.start">
 					<h3>{{fish.status.toUpperCase()}}</h3>
-					<p>{{Math.ceil(fish.remaining / 1000)}}{{fish.status === 'raw' || fish.status === 'undercooked' ? 's until ready' : 's until burned'}}</p>
+					<p>{{Math.abs(Math.ceil(fish.remaining / 1000))}}{{fish.status === 'raw' || fish.status === 'undercooked' ? 's until ready' : fish.status === 'cooked' ? 's until burned' : 's since burnt'}}</p>
 				</template>
 				<template v-else>
 					<h3>Nothing Cooking</h3>
@@ -135,7 +175,7 @@
 				<button @click="event('stop')">Stop Cooking</button>
 			</div>
 		</main>
-		<footer>
+		<footer v-show="!socket && !hour.end">
 			<p>Created by <a href="https://mark.honeychurch.org/">Mark Honeychurch</a></p>
 		</footer>
 	</body>
