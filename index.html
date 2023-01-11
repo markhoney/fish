@@ -7,6 +7,34 @@
 		<link rel="stylesheet" href="style.css">
 		<script type="module">
 			import {createApp} from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
+			const fish = {
+				timing: {
+					normal: {
+						raw: 30 * 1000,
+						undercooked: 40 * 1000,
+						cooked: 80 * 1000,
+						burnt: 60 * 60 * 1000,
+					},
+					trophy: {
+						raw: 80 * 1000,
+						undercooked: 90 * 1000,
+						cooked: 180 * 1000,
+						burnt: 60 * 60 * 1000,
+					},
+				},
+				price: {
+					raw: 1,
+					undercooked: 1.3,
+					cooked: 1.5,
+					burnt: 0.5,
+				},
+				/* colour: {
+					raw: '#900000',
+					undercooked: '#905000',
+					cooked: '#009000',
+					burnt: '#000000',
+				}, */
+			};
 			createApp({
 				data() {
 					return {
@@ -18,36 +46,47 @@
 						fish: {
 							start: 0,
 							elapsed: 0,
-							percent: 0,
-							done: 0,
 							type: 'normal',
-							status: '',
-							colour: '#333333',
-							timing: {
-								normal: {
-									raw: 30 * 1000,
-									undercooked: 40 * 1000,
-									cooked: 80 * 1000,
-									burnt: 60 * 60 * 1000,
-								},
-								trophy: {
-									raw: 80 * 1000,
-									undercooked: 90 * 1000,
-									cooked: 180 * 1000,
-									burnt: 60 * 60 * 1000,
-								},
-							},
-							colours: {
-								raw: '#900000',
-								undercooked: '#905000',
-								cooked: '#009000',
-								burnt: '#000000',
-							},
 						},
 						timer: null,
 						socket: null,
 						syncing: true,
 					};
+				},
+				computed: {
+					fishStatus() {
+						if (!this.fish.start) return '';
+						return Object.keys(fish.timing[this.fish.type]).find((status) => this.fish.elapsed < fish.timing[this.fish.type][status]);
+					},
+					fishStats() {
+						if (!this.fish.start) return {};
+						return {
+							next: fish.timing[this.fish.type][this.fishStatus],
+							cooked: fish.timing[this.fish.type]['undercooked'],
+							burnt: fish.timing[this.fish.type]['cooked'],
+							price: fish.price[this.fishStatus],
+						};
+					},
+					fishCooking() {
+						return this.fishStatus === 'raw' || this.fishStatus === 'undercooked';
+					},
+					fishRemaining() {
+						if (!this.fish.start) return 0;
+						if (this.fishCooking) return this.fishStats.cooked - this.fish.elapsed;
+						return this.fishStats.burnt - this.fish.elapsed;
+					},
+					fishPercent() {
+						if (!this.fish.start) return 0;
+						if (this.fish.elapsed < this.fishStats.cooked) return Math.floor((this.fish.elapsed / this.fishStats.cooked) * 100);
+						return Math.floor(((this.fish.elapsed - this.fishStats.cooked) / (this.fishStats.burnt - this.fishStats.cooked)) * 100);
+					},
+					fishColour() {
+						if (!this.fish.start) return '#333333';
+						if (this.fishStatus === 'burnt') return 'black';
+						if (this.fishCooking) return `rgb(${Math.floor(100 - (this.fishPercent * 0.5))}, ${Math.floor(this.fishPercent * 0.5)}, 0)`;
+						if (this.fishStatus === 'cooked') return `rgb(0, ${Math.floor(150 - (this.fishPercent))}, 0)`;
+						return '#333333';
+					},
 				},
 				methods: {
 					startHour() {
@@ -136,19 +175,8 @@
 						}
 						if (this.fish.start) {
 							this.fish.elapsed = Date.now() - this.fish.start;
-							this.fish.status = Object.keys(this.fish.timing[this.fish.type]).find((status) => this.fish.elapsed < this.fish.timing[this.fish.type][status]);
-							this.fish.remaining = this.fish.status === 'raw' || this.fish.status === 'undercooked' ? this.fish.timing[this.fish.type]['undercooked'] - this.fish.elapsed : this.fish.timing[this.fish.type]['cooked'] - this.fish.elapsed;
-							this.fish.percent = this.fish.elapsed < this.fish.timing[this.fish.type]['undercooked'] ?
-								Math.floor((this.fish.elapsed / this.fish.timing[this.fish.type]['undercooked']) * 100) :
-								Math.floor(((this.fish.elapsed - this.fish.timing[this.fish.type]['undercooked']) / (this.fish.timing[this.fish.type]['cooked'] - this.fish.timing[this.fish.type]['undercooked'])) * 100);
-							if (this.fish.status === 'burnt') this.fish.colour = 'black';
-							else if (this.fish.status === 'raw' || this.fish.status === 'undercooked') this.fish.colour = `rgb(${Math.floor(100 - (this.fish.percent * 0.5))}, ${Math.floor(this.fish.percent * 0.5)}, 0)`;
-							else if (this.fish.status === 'cooked') this.fish.colour = `rgb(0, ${Math.floor(150 - (this.fish.percent))}, 0)`;
-							else this.fish.colour = '#333333';
 						} else {
 							this.fish.elapsed = 0;
-							this.fish.remaining = 0;
-							this.fish.status = '';
 						}
 					}, 100);
 				},
@@ -166,10 +194,10 @@
 				<button v-if="!socket" @click="goLive">Go Live</button>
 				<button v-if="!hour.end" @click="event('hour')">Start Countdown</button>
 			</div>
-			<div id="fish" :class="fish.status" :style="{backgroundColor: fish.colour}">
+			<div id="fish" :style="{backgroundColor: fishColour}">
 				<template v-if="fish.start">
-					<h3>{{fish.status.toUpperCase()}}</h3>
-					<p>{{Math.abs(Math.ceil(fish.remaining / 1000))}}{{fish.status === 'raw' || fish.status === 'undercooked' ? 's until ready' : fish.status === 'cooked' ? 's until burned' : 's since burnt'}}</p>
+					<h3>{{fishStatus.toUpperCase()}}<small v-if="fishStats.price"> ({{fishStats.price}}x)</small></h3>
+					<p>{{Math.abs(Math.ceil(fishRemaining / 1000))}}{{fishCooking ? 's until ready' : fishStatus === 'cooked' ? 's until burned' : 's since burnt'}}</p>
 				</template>
 				<template v-else>
 					<h3>Nothing Cooking</h3>
