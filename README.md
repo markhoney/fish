@@ -12,8 +12,8 @@ You can test the websocket server [here](https://www.piesocket.com/websocket-tes
 
 ## To Do
 
-- [ ] Handle client disconnects
-- [ ] Handle giving new/reconnecting clients the current state of the timer
-- [ ] Clean up UI
-- [ ] Make UI more mobile friendly
+- [x] Handle client disconnects
+- [x] Handle giving new/reconnecting clients the current state of the timer
+- [x] Clean up UI
+- [x] Make UI more mobile friendly
 - [x] Add link to site to header
