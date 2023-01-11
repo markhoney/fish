@@ -9,3 +9,11 @@ This timer has been written to help with the speedrun.com Sea of Thieves [High S
 You can test the websocket server [here](https://www.piesocket.com/websocket-tester) using the following URL:
 
 `wss://demo.piesocket.com/v3/seaofplenty?api_key=VCXCEuvhGcBDP7XhiJJUDvR1e1D3eiVjgZ9VRiaV&notify_self`
+
+## To Do
+
+- [ ] Handle client disconnects
+- [ ] Handle giving new/reconnecting clients the current state of the timer
+- [ ] Clean up UI
+- [ ] Make UI more mobile friendly
+- [x] Add link to site to header
