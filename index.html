@@ -7,33 +7,42 @@
 		<link rel="stylesheet" href="style.css">
 		<script type="module">
 			import {createApp} from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js';
-			const fish = {
-				timing: {
-					normal: {
-						raw: 30 * 1000,
-						undercooked: 40 * 1000,
-						cooked: 80 * 1000,
-						burnt: 60 * 60 * 1000,
+			const vars = {
+				fish: {
+					timing: {
+						normal: {
+							raw: 30 * 1000,
+							undercooked: 40 * 1000,
+							cooked: 80 * 1000,
+							burnt: 60 * 60 * 1000,
+						},
+						trophy: {
+							raw: 80 * 1000,
+							undercooked: 90 * 1000,
+							cooked: 180 * 1000,
+							burnt: 60 * 60 * 1000,
+						},
 					},
-					trophy: {
-						raw: 80 * 1000,
-						undercooked: 90 * 1000,
-						cooked: 180 * 1000,
-						burnt: 60 * 60 * 1000,
+					price: {
+						raw: 1,
+						undercooked: 1.3,
+						cooked: 1.5,
+						burnt: 0.5,
+					},
+					/* colour: {
+						raw: '#900000',
+						undercooked: '#905000',
+						cooked: '#009000',
+						burnt: '#000000',
+					}, */
+				},
+				cooking: {
+					audio: {
+						ding: new Audio('/ding.mp3'),
+						door: new Audio('/door.mp3'),
+						pings: new Audio('/pings.mp3'),
 					},
 				},
-				price: {
-					raw: 1,
-					undercooked: 1.3,
-					cooked: 1.5,
-					burnt: 0.5,
-				},
-				/* colour: {
-					raw: '#900000',
-					undercooked: '#905000',
-					cooked: '#009000',
-					burnt: '#000000',
-				}, */
 			};
 			createApp({
 				data() {
@@ -50,22 +59,32 @@
 						},
 						timer: null,
 						socket: null,
+						tick: null,
 						syncing: true,
 					};
 				},
 				computed: {
 					fishStatus() {
 						if (!this.fish.start) return '';
-						return Object.keys(fish.timing[this.fish.type]).find((status) => this.fish.elapsed < fish.timing[this.fish.type][status]);
+						return Object.keys(vars.fish.timing[this.fish.type]).find((status) => this.fish.elapsed < vars.fish.timing[this.fish.type][status]);
 					},
 					fishStats() {
 						if (!this.fish.start) return {};
 						return {
-							next: fish.timing[this.fish.type][this.fishStatus],
-							cooked: fish.timing[this.fish.type]['undercooked'],
-							burnt: fish.timing[this.fish.type]['cooked'],
-							price: fish.price[this.fishStatus],
+							cooked: vars.fish.timing[this.fish.type]['undercooked'],
+							burnt: vars.fish.timing[this.fish.type]['cooked'],
 						};
+					},
+					fishNext() {
+						if (!this.fish.start) return 0;
+						return vars.fish.timing[this.fish.type][this.fishStatus];
+					},
+					fishPrice() {
+						if (!this.fish.start) return 0;
+						return vars.fish.price[this.fishStatus];
+					},
+					fishBurning() {
+						return this.fishStats.burnt - this.fish.elapsed < 10000;
 					},
 					fishCooking() {
 						return this.fishStatus === 'raw' || this.fishStatus === 'undercooked';
@@ -88,6 +107,15 @@
 						return '#333333';
 					},
 				},
+				watch: {
+					fishStatus(status) {
+						if (status === 'raw') vars.cooking.audio.door.play();
+						else if (status === 'cooked') vars.cooking.audio.ding.play();
+					},
+					fishBurning(burning) {
+						if (burning) vars.cooking.audio.pings.play();
+					},
+				},
 				methods: {
 					startHour() {
 						this.hour.end = Date.now() + (60 * 60 * 1000);
@@ -97,9 +125,12 @@
 						this.fish.type = trophy ? 'trophy' : 'normal';
 						this.fish.elapsed = 0;
 						this.fish.start = Date.now();
+						// this.startTick();
 					},
 					stopFish() {
 						this.fish.start = 0;
+					},
+					startTick() {
 					},
 					event(message) {
 						if (this.socket) {
@@ -196,7 +227,7 @@
 			</div>
 			<div id="fish" :style="{backgroundColor: fishColour}">
 				<template v-if="fish.start">
-					<h3>{{fishStatus.toUpperCase()}}<small v-if="fishStats.price"> ({{fishStats.price}}x)</small></h3>
+					<h3>{{fishStatus.toUpperCase()}}<small v-if="fishPrice"> ({{fishPrice}}x)</small></h3>
 					<p>{{Math.abs(Math.ceil(fishRemaining / 1000))}}{{fishCooking ? 's until ready' : fishStatus === 'cooked' ? 's until burned' : 's since burnt'}}</p>
 				</template>
 				<template v-else>

@@ -17,4 +17,4 @@ You can test the websocket server [here](https://www.piesocket.com/websocket-tes
 - [x] Clean up UI
 - [x] Make UI more mobile friendly
 - [x] Add link to site to header
-- [ ] Add sounds (cooking tick, done ping, burned countdown)
+- [x] Add sounds (cooking tick, done ping, burned countdown)
